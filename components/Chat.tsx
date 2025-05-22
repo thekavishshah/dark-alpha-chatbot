@@ -1,65 +1,100 @@
 "use client";
+import { useEffect, useState } from "react";
 
-import { useState } from "react";
-
-type Message = { role: "user" | "assistant"; content: string };
+type Msg = { role: "user" | "assistant"; content: string };
 
 export default function Chat() {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [input,    setInput]    = useState("");
+  const [chatId,   setChatId]   = useState<string | undefined>();
 
-  const send = async () => {
+  /* ---------- persist chatId across page reloads ---------- */
+  useEffect(() => {
+    setChatId(localStorage.getItem("dac-chat-id") ?? undefined);
+  }, []);
+  useEffect(() => {
+    if (chatId) localStorage.setItem("dac-chat-id", chatId);
+  }, [chatId]);
+
+  /* ---------- NEW: fetch full history whenever chatId changes ---------- */
+  useEffect(() => {
+    if (!chatId) return;
+    (async () => {
+      try {
+        const res  = await fetch(`/api/messages/${chatId}`);
+        if (!res.ok) return;
+        const data = (await res.json()) as Msg[];
+        setMessages(data);
+      } catch {
+        /* ignore */
+      }
+    })();
+  }, [chatId]);
+
+  /* ---------- send message ---------- */
+  async function send() {
     const text = input.trim();
     if (!text) return;
 
-    // 1) locally add the user's message
-    const userMsg = { role: "user" as const, content: text };
-    const history = [...messages, userMsg];
-    setMessages(history);
+    const userMsg: Msg = { role: "user", content: text };
+    setMessages(m => [...m, userMsg]);
     setInput("");
 
     try {
-      // 2) call the API with the full conversation
       const res = await fetch("/api/chat", {
-        method: "POST",
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history }),
+        body:    JSON.stringify({ messages: [...messages, userMsg], chatId }),
       });
-      const data = await res.json();
-      console.log("API →", data);
 
-      // 3) append the assistant’s reply
-      if (data.content) {
-        setMessages((m) => [
-          ...m,
-          { role: "assistant" as const, content: data.content },
-        ]);
+      const id = res.headers.get("x-chat-id");
+      if (id && id !== chatId) setChatId(id);
+
+      if (res.body) {
+        const reader   = res.body.getReader();
+        const decoder  = new TextDecoder();
+        let assistant  = "";
+
+        let firstChunk = true;
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          assistant += decoder.decode(value, { stream: true });
+
+          setMessages(prev => {
+            const arr = [...prev];
+            if (firstChunk) {
+              arr.push({ role: "assistant", content: assistant });
+              firstChunk = false;
+            } else {
+              arr[arr.length - 1].content = assistant;
+            }
+            return arr;
+          });
+        }
       } else {
-        setMessages((m) => [
-          ...m,
-          { role: "assistant" as const, content: "🤖 (no reply from server)" },
+        const data = await res.json();
+        setMessages(prev => [
+          ...prev,
+          { role: "assistant", content: data.content ?? "🤖" },
         ]);
       }
-    } catch (err) {
-      console.error(err);
-      setMessages((m) => [
-        ...m,
-        { role: "assistant" as const, content: "⚠️ network error" },
+    } catch {
+      setMessages(prev => [
+        ...prev,
+        { role: "assistant", content: "⚠️ network error" },
       ]);
     }
-  };
+  }
 
+  /* ---------- UI ---------- */
   return (
-    <div style={{ maxWidth: 600, margin: "2rem auto", fontFamily: "sans-serif" }}>
-      <div
-        style={{
-          minHeight: 300,
-          border: "1px solid #ddd",
-          borderRadius: 8,
-          padding: 12,
-          overflowY: "auto",
-        }}
-      >
+    <div style={{ maxWidth: 680, margin: "0 auto", padding: 24 }}>
+      <h1 style={{ fontWeight: 600, fontSize: 24, marginBottom: 16 }}>
+        Dark Alpha Capital Chat
+      </h1>
+
+      <div style={{ minHeight: 320 }}>
         {messages.map((m, i) => (
           <div
             key={i}
@@ -73,7 +108,7 @@ export default function Chat() {
                 display: "inline-block",
                 padding: "8px 12px",
                 borderRadius: 16,
-                background: m.role === "user" ? "#e0f3ff" : "#f0f0f0",
+                background: m.role === "user" ? "#d0eaff" : "#f0f0f0",
               }}
             >
               {m.content}
@@ -81,13 +116,14 @@ export default function Chat() {
           </div>
         ))}
       </div>
+
       <div style={{ marginTop: 12, display: "flex" }}>
         <input
           style={{ flex: 1, padding: 8, fontSize: 16 }}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && send()}
-          placeholder="Ask about Dark Alpha Capital..."
+          placeholder="Ask anything…"
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && send()}
         />
         <button
           style={{ marginLeft: 8, padding: "0 16px", fontSize: 16 }}

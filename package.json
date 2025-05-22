@@ -7,13 +7,15 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx lib/db/migrate.ts",
-    "db:drop": "drizzle-kit drop",
-    "db:pull": "drizzle-kit introspect",
-    "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio",
-    "db:check": "drizzle-kit check",
+    "db:migrate":  "drizzle-kit migrate",
+    "db:drop":     "drizzle-kit drop",
+    "db:pull":     "drizzle-kit introspect",
+    "db:push":     "drizzle-kit push",
+    "db:studio":   "drizzle-kit studio",
+    "db:check":    "drizzle-kit check",
+
     "ingest": "tsx scripts/ingest.ts"
   },
   "dependencies": {

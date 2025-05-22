@@ -17,8 +17,11 @@ export async function generateEmbeddings(content: string) {
     model: embeddingModel,
     values: chunks,
   });
+  console.log("embeddings", embeddings);
   return embeddings.map((e, i) => ({
     content: chunks[i],
     embedding: e,
+
   }));
 }
+
