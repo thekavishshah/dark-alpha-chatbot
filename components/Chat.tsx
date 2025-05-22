@@ -1,78 +1,101 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
 export default function Chat() {
-  const [messages, setMessages] = useState<Msg[]>([]);
-  const [input,    setInput]    = useState("");
-  const [chatId,   setChatId]   = useState<string | undefined>();
+  // grab the "c" query param or localStorage fallback
+  const searchParams = useSearchParams();
+  const initialChatId =
+    searchParams.get("c") ?? localStorage.getItem("dac-chat-id") ?? undefined;
 
-  /* ---------- persist chatId across page reloads ---------- */
+  // state for chatId, messages, and input text
+  const [chatId, setChatId] = useState<string | undefined>(initialChatId);
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [input, setInput] = useState("");
+
+  // persist chatId to localStorage whenever it changes
   useEffect(() => {
-    setChatId(localStorage.getItem("dac-chat-id") ?? undefined);
-  }, []);
-  useEffect(() => {
-    if (chatId) localStorage.setItem("dac-chat-id", chatId);
+    if (chatId) {
+      localStorage.setItem("dac-chat-id", chatId);
+    }
   }, [chatId]);
 
-  /* ---------- NEW: fetch full history whenever chatId changes ---------- */
+  // update chatId state when the URL param changes
   useEffect(() => {
-    if (!chatId) return;
+    const c = searchParams.get("c");
+    if (c && c !== chatId) {
+      setChatId(c);
+    }
+  }, [searchParams, chatId]);
+
+  // fetch full history for the current chatId
+  useEffect(() => {
+    if (!chatId) {
+      setMessages([]);
+      return;
+    }
     (async () => {
       try {
-        const res  = await fetch(`/api/messages/${chatId}`);
+        const res = await fetch(`/api/messages/${chatId}`);
         if (!res.ok) return;
         const data = (await res.json()) as Msg[];
         setMessages(data);
       } catch {
-        /* ignore */
+        // silently ignore errors
       }
     })();
   }, [chatId]);
 
-  /* ---------- send message ---------- */
+  // send a new user message and stream the assistant reply
   async function send() {
     const text = input.trim();
     if (!text) return;
 
     const userMsg: Msg = { role: "user", content: text };
-    setMessages(m => [...m, userMsg]);
+    const outgoing = [...messages, userMsg];
+    setMessages(outgoing);
     setInput("");
 
     try {
       const res = await fetch("/api/chat", {
-        method:  "POST",
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ messages: [...messages, userMsg], chatId }),
+        body: JSON.stringify({ messages: outgoing, chatId }),
       });
 
-      const id = res.headers.get("x-chat-id");
-      if (id && id !== chatId) setChatId(id);
+      // grab/override chatId if new
+      const newId = res.headers.get("x-chat-id");
+      if (newId && newId !== chatId) {
+        setChatId(newId);
+      }
 
+      // stream assistant response
       if (res.body) {
-        const reader   = res.body.getReader();
-        const decoder  = new TextDecoder();
-        let assistant  = "";
-
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let assistantText = "";
         let firstChunk = true;
+
         while (true) {
           const { value, done } = await reader.read();
           if (done) break;
-          assistant += decoder.decode(value, { stream: true });
+          assistantText += decoder.decode(value, { stream: true });
 
           setMessages(prev => {
             const arr = [...prev];
             if (firstChunk) {
-              arr.push({ role: "assistant", content: assistant });
+              arr.push({ role: "assistant", content: assistantText });
               firstChunk = false;
             } else {
-              arr[arr.length - 1].content = assistant;
+              arr[arr.length - 1].content = assistantText;
             }
             return arr;
           });
         }
       } else {
+        // fallback JSON
         const data = await res.json();
         setMessages(prev => [
           ...prev,
@@ -87,7 +110,6 @@ export default function Chat() {
     }
   }
 
-  /* ---------- UI ---------- */
   return (
     <div style={{ maxWidth: 680, margin: "0 auto", padding: 24 }}>
       <h1 style={{ fontWeight: 600, fontSize: 24, marginBottom: 16 }}>
