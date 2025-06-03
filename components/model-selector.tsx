@@ -1,6 +1,7 @@
 'use client';
 
 import { startTransition, useMemo, useOptimistic, useState } from 'react';
+import type { Session } from 'next-auth';
 
 import { saveChatModelAsCookie } from '@/app/(chat)/actions';
 import { Button } from '@/components/ui/button';
@@ -10,17 +11,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { chatModels } from '@/lib/ai/models';
-import { cn } from '@/lib/utils';
-
 import { CheckCircleFillIcon, ChevronDownIcon } from './icons';
+
+import { chatModels } from '@/lib/ai/models';
 import { entitlementsByUserType } from '@/lib/ai/entitlements';
-import type { Session } from 'next-auth';
+import { cn } from '@/lib/utils';
 
 export function ModelSelector({
   session,
   selectedModelId,
   className,
+  ...btnProps
 }: {
   session: Session;
   selectedModelId: string;
@@ -29,21 +30,28 @@ export function ModelSelector({
   const [optimisticModelId, setOptimisticModelId] =
     useOptimistic(selectedModelId);
 
+  /* ── entitlement filter —────────────────────────────────────── */
   const userType = session.user.type;
-  const { availableChatModelIds } = entitlementsByUserType[userType];
+  const { availableChatModelIds } = entitlementsByUserType[userType] ?? {
+    availableChatModelIds: ['*'],
+  };
 
-  const availableChatModels = chatModels.filter((chatModel) =>
-    availableChatModelIds.includes(chatModel.id),
-  );
+  const availableChatModels = useMemo(() => {
+    if (
+      !availableChatModelIds ||
+      availableChatModelIds.length === 0 ||
+      availableChatModelIds.includes('*')
+    ) {
+      return chatModels;
+    }
+    return chatModels.filter((m) => availableChatModelIds.includes(m.id));
+  }, [availableChatModelIds]);
 
-  const selectedChatModel = useMemo(
-    () =>
-      availableChatModels.find(
-        (chatModel) => chatModel.id === optimisticModelId,
-      ),
-    [optimisticModelId, availableChatModels],
-  );
+  const selectedChatModel =
+    availableChatModels.find((m) => m.id === optimisticModelId) ??
+    availableChatModels[0];
 
+  /* ── UI —────────────────────────────────────────────────────── */
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger
@@ -57,48 +65,48 @@ export function ModelSelector({
           data-testid="model-selector"
           variant="outline"
           className="md:px-2 md:h-[34px]"
+          {...btnProps}
         >
           {selectedChatModel?.name}
           <ChevronDownIcon />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-[300px]">
-        {availableChatModels.map((chatModel) => {
-          const { id } = chatModel;
 
-          return (
-            <DropdownMenuItem
-              data-testid={`model-selector-item-${id}`}
-              key={id}
-              onSelect={() => {
-                setOpen(false);
-
-                startTransition(() => {
-                  setOptimisticModelId(id);
-                  saveChatModelAsCookie(id);
-                });
-              }}
-              data-active={id === optimisticModelId}
-              asChild
+      {/* 👇 Scrollable list: shows ~3-4 items, rest scrolls */}
+      <DropdownMenuContent
+        align="start"
+        className="min-w-[300px] max-h-52 overflow-y-auto"
+      >
+        {availableChatModels.map((m) => (
+          <DropdownMenuItem
+            key={m.id}
+            data-testid={`model-selector-item-${m.id}`}
+            data-active={m.id === optimisticModelId}
+            onSelect={() => {
+              setOpen(false);
+              startTransition(() => {
+                setOptimisticModelId(m.id);
+                saveChatModelAsCookie(m.id);
+              });
+            }}
+            asChild
+          >
+            <button
+              type="button"
+              className="flex w-full items-center justify-between gap-4 group/item"
             >
-              <button
-                type="button"
-                className="gap-4 group/item flex flex-row justify-between items-center w-full"
-              >
-                <div className="flex flex-col gap-1 items-start">
-                  <div>{chatModel.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {chatModel.description}
-                  </div>
+              <div className="flex flex-col items-start gap-1">
+                <div>{m.name}</div>
+                <div className="text-xs text-muted-foreground">
+                  {m.description}
                 </div>
-
-                <div className="text-foreground dark:text-foreground opacity-0 group-data-[active=true]/item:opacity-100">
-                  <CheckCircleFillIcon />
-                </div>
-              </button>
-            </DropdownMenuItem>
-          );
-        })}
+              </div>
+              <div className="opacity-0 group-data-[active=true]/item:opacity-100">
+                <CheckCircleFillIcon />
+              </div>
+            </button>
+          </DropdownMenuItem>
+        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   );
