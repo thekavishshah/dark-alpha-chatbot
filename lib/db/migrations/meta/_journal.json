@@ -5,36 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1748692992293,
-      "tag": "0000_young_barracuda",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1748693449081,
-      "tag": "0001_calm_anthem",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1748693502056,
-      "tag": "0002_aspiring_winter_soldier",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1748699009280,
-      "tag": "0003_clammy_the_santerians",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1748782054904,
-      "tag": "0004_daily_wendell_vaughn",
+      "when": 1748969898888,
+      "tag": "0000_sweet_warbird",
       "breakpoints": true
     }
   ]

@@ -84,7 +84,7 @@ export const myProvider = isTestEnvironment
         'gemini-2.5-pro-deepthink' : gemini('gemini-2.5-pro-deepthink'),
 
         /* —— xAI —— */
-        'grok-3'               : grok('grok-3'),                // cast hides missing literal
+        'grok-3'               : grok('grok-3'),
 
         /* —— Anthropic —— */
         'claude-4-opus'        : anthropic('claude-4-opus-202505'),

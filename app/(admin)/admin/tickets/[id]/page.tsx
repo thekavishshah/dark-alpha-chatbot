@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AIDraftButton } from '@/components/ai-draft-button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft,
@@ -400,6 +401,11 @@ export default async function TicketDetail({
                           rows={10}
                           className="resize-none"
                         />
+
+                        {/* AI draft helper */}
+                        <div className="mt-2">
+                          <AIDraftButton ticketId={id} />
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <Button
