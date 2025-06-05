@@ -1,23 +1,29 @@
 "use client";
 
-import React from "react";
+import React, { startTransition } from "react";
+import Link from "next/link";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Resource } from "@/lib/db/schema";
-import { FileText, MoreHorizontal } from "lucide-react";
-import { File } from "buffer";
-import { ImageIcon } from "lucide-react";
+import {
+  Card,
+  CardContent,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
-import { deleteResource } from "@/lib/actions/delete-resource";
+import { FileText, Image as ImageIcon, MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 
-const ResourceCard = ({
+import { deleteResource } from "@/lib/actions/delete-resource";
+
+/* ------------------------------------------------------------------ */
+/*  Resource card with working View / Edit links                      */
+/* ------------------------------------------------------------------ */
+export default function ResourceCard({
   resourceId,
   resourceName,
   resourceDescription,
@@ -26,48 +32,38 @@ const ResourceCard = ({
 }: {
   resourceId: string;
   resourceName: string;
-  resourceDescription: string;
+  resourceDescription: string | null;
   resourceKind: string;
   companyId: string;
-}) => {
+}) {
+  /* build the two destinations once */
+  const viewHref = `/admin/companies/${companyId}/resources/${resourceId}`;
+  const editHref = {
+    pathname: viewHref,
+    query: { edit: "1" },
+  } as const;
+
+  /* choose icon */
+  const Icon =
+    resourceKind === "jpg" ||
+    resourceKind === "jpeg" ||
+    resourceKind === "png" ||
+    resourceKind === "gif" ||
+    resourceKind === "webp" ||
+    resourceKind === "image"
+      ? ImageIcon
+      : FileText;
+
   return (
-    <Card
-      key={resourceId}
-      className="group hover:shadow-md transition-all duration-200"
-    >
+    <Card className="group hover:shadow-md transition-all duration-200">
       <CardContent className="p-6">
+        {/* header row */}
         <div className="flex justify-between items-start mb-4">
           <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center text-muted-foreground">
-            {resourceKind === "pdf" ? (
-              <FileText className="h-4 w-4" />
-            ) : resourceKind === "doc" ? (
-              <FileText className="h-4 w-4" />
-            ) : resourceKind === "docx" ? (
-              <FileText className="h-4 w-4" />
-            ) : resourceKind === "txt" ? (
-              <FileText className="h-4 w-4" />
-            ) : resourceKind === "jpg" ? (
-              <ImageIcon className="h-4 w-4" />
-            ) : resourceKind === "jpeg" ? (
-              <ImageIcon className="h-4 w-4" />
-            ) : resourceKind === "png" ? (
-              <ImageIcon className="h-4 w-4" />
-            ) : resourceKind === "gif" ? (
-              <ImageIcon className="h-4 w-4" />
-            ) : resourceKind === "webp" ? (
-              <ImageIcon className="h-4 w-4" />
-            ) : resourceKind === "xls" ? (
-              <FileText className="h-4 w-4" />
-            ) : resourceKind === "xlsx" ? (
-              <FileText className="h-4 w-4" />
-            ) : resourceKind === "image" ? (
-              <ImageIcon className="h-4 w-4" />
-            ) : resourceKind === "excel" ? (
-              <FileText className="h-4 w-4" />
-            ) : (
-              <FileText className="h-4 w-4" />
-            )}
+            <Icon className="h-4 w-4" />
           </div>
+
+          {/* ░░░ menu ░░░ */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -79,19 +75,31 @@ const ResourceCard = ({
                 <span className="sr-only">Open menu</span>
               </Button>
             </DropdownMenuTrigger>
+
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>View</DropdownMenuItem>
-              <DropdownMenuItem>Edit</DropdownMenuItem>
+              {/* -- view ------------------------------------------------ */}
+              <DropdownMenuItem asChild inset>
+                <Link href={viewHref}>View</Link>
+              </DropdownMenuItem>
+
+              {/* -- edit ------------------------------------------------ */}
+              <DropdownMenuItem asChild inset>
+                <Link href={editHref}>Edit</Link>
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator />
+
+
+              {/* -- delete ---------------------------------------------- */}
               <DropdownMenuItem
-                className="text-destructive"
+                inset
+                className="text-destructive focus:text-destructive cursor-pointer"
                 onClick={() => {
-                  deleteResource(resourceId, companyId).then((res) => {
-                    if (res.success) {
-                      toast.success(res.message);
-                    } else {
-                      toast.error(res.message);
-                    }
-                  });
+                  deleteResource(resourceId, companyId).then((res) =>
+                    res.success
+                      ? toast.success(res.message)
+                      : toast.error(res.message),
+                  );
                 }}
               >
                 Delete
@@ -99,15 +107,15 @@ const ResourceCard = ({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+
+        {/* body */}
         <h4 className="font-semibold mb-2">{resourceName}</h4>
         {resourceDescription && (
-          <p className="text-muted-foreground text-sm leading-relaxed mb-4 line-clamp-2">
+          <p className="text-muted-foreground text-sm leading-relaxed mb-2 line-clamp-2">
             {resourceDescription}
           </p>
         )}
       </CardContent>
     </Card>
   );
-};
-
-export default ResourceCard;
+}

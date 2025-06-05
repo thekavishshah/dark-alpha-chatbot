@@ -2,9 +2,9 @@
 /*  View *or* Edit a resource – mode chosen with ?edit=1              */
 /* ------------------------------------------------------------------ */
 import { redirect } from 'next/navigation';
-import Link          from 'next/link';
-import Markdown      from 'react-markdown';
-import { eq }        from 'drizzle-orm';
+import Link from 'next/link';
+import Markdown from 'react-markdown';
+import { eq } from 'drizzle-orm';
 import { Pencil, ArrowLeft } from 'lucide-react';
 
 import {
@@ -13,11 +13,11 @@ import {
   CardTitle,
   CardContent,
 } from '@/components/ui/card';
-import { Textarea }  from '@/components/ui/textarea';
-import { Button }    from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
 
-import { db }                 from '@/lib/db/queries';
-import { resources as tbl }   from '@/lib/db/schema';
+import { db } from '@/lib/db/queries';
+import { resources as tbl } from '@/lib/db/schema';
 
 /*-------------------------------------------------------------------*/
 export default async function ResourcePage({
@@ -40,6 +40,7 @@ export default async function ResourcePage({
         .limit(1)
     )[0];
 
+  /* If not found → back to company */
   if (!resource) redirect(`/admin/companies/${uid}`);
 
   /* ---------------- EDIT MODE ------------------------------------ */
@@ -72,7 +73,7 @@ export default async function ResourcePage({
 
           <Textarea
             name="content"
-             defaultValue={resource.content ?? ''}  
+            defaultValue={resource.content ?? ''}
             className="min-h-[60vh]"
           />
 
