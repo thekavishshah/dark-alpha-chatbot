@@ -1,11 +1,9 @@
 /* ------------------------------------------------------------------ */
-/*  View *or* Edit a resource – mode chosen with ?edit=1              */
+/*  “Add Resource” – server component                                 */
 /* ------------------------------------------------------------------ */
-import { redirect } from 'next/navigation';
-import Link          from 'next/link';
-import Markdown      from 'react-markdown';
-import { eq }        from 'drizzle-orm';
-import { Pencil, ArrowLeft } from 'lucide-react';
+
+import Link               from 'next/link';
+import { ArrowLeft }      from 'lucide-react';
 
 import {
   Card,
@@ -13,117 +11,50 @@ import {
   CardTitle,
   CardContent,
 } from '@/components/ui/card';
-import { Textarea }  from '@/components/ui/textarea';
-import { Button }    from '@/components/ui/button';
 
-import { db }                 from '@/lib/db/queries';
-import { resources as tbl }   from '@/lib/db/schema';
+import NewResourceForm    from '@/components/forms/new-resource-form';
+import { getCompanyNameById } from '@/lib/db/queries';
 
 /*-------------------------------------------------------------------*/
-export default async function ResourcePage({
+export default async function NewResourcePage({
   params,
-  searchParams,
 }: {
-  params: { uid: string; resourceId: string };
-  searchParams: { edit?: string };
+  params: Promise<{ uid: string }>;
 }) {
-  const { uid, resourceId } = params;
-  const editing = searchParams?.edit === '1';
+  /* 1️⃣  Next 15:  params is a Promise — you MUST await it. */
+  const { uid } = await params;
 
-  /* --- load ------------------------------------------------------ */
-  const resource =
-    (
-      await db
-        .select()
-        .from(tbl)
-        .where(eq(tbl.id, resourceId))
-        .limit(1)
-    )[0];
+  /* 2️⃣  Fetch the company name (may return null)            */
+  const company = await getCompanyNameById(uid);
+  const companyName = company?.name ?? 'Company';   // never undefined
 
-  if (!resource) redirect(`/admin/companies/${uid}`);
-
-  /* ---------------- EDIT MODE ------------------------------------ */
-  if (editing) {
-    /** server-action to persist changes */
-    async function save(formData: FormData) {
-      'use server';
-      const content = formData.get('content') as string;
-      await db
-        .update(tbl)
-        .set({ content })
-        .where(eq(tbl.id, resourceId));
-      redirect(`/admin/companies/${uid}/resources/${resourceId}`);
-    }
-
-    return (
-      <div className="big-container block-space-mini space-y-6">
+  /* 3️⃣  Render                                                 */
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto py-8 px-4 md:px-6 max-w-2xl">
+        {/* back-link */}
         <Link
-          href={`/admin/companies/${uid}/resources/${resourceId}`}
-          className="inline-flex items-center text-muted-foreground hover:text-foreground"
+          href={`/admin/companies/${uid}`}
+          className="inline-flex items-center text-muted-foreground hover:text-foreground mb-6 transition-colors"
         >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Cancel
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Company Details
         </Link>
 
-        <form action={save} className="space-y-4">
-          <h1 className="text-2xl font-semibold">
-            Edit “{resource.name}”
-          </h1>
+        {/* main card */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-xl">
+              Add New Resource&nbsp;to&nbsp;{companyName}
+            </CardTitle>
+          </CardHeader>
 
-          <Textarea
-            name="content"
-             defaultValue={resource.content ?? ''}  
-            className="min-h-[60vh]"
-          />
-
-          <Button type="submit">Save changes</Button>
-        </form>
+          <CardContent>
+            {/* client component handles file upload / form */}
+            <NewResourceForm companyId={uid} />
+          </CardContent>
+        </Card>
       </div>
-    );
-  }
-
-  /* ---------------- VIEW MODE ------------------------------------ */
-  return (
-    <div className="big-container block-space-mini space-y-6">
-      <Link
-        href={`/admin/companies/${uid}`}
-        className="inline-flex items-center text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        Back to company
-      </Link>
-
-      <Card>
-        <CardHeader className="flex items-start justify-between">
-          <div>
-            <CardTitle className="text-2xl">{resource.name}</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              {resource.description ?? ''}
-            </p>
-          </div>
-
-          <Button
-            size="icon"
-            variant="outline"
-            asChild
-            title="Edit"
-            aria-label="Edit"
-          >
-            <Link
-              href={{
-                pathname: `/admin/companies/${uid}/resources/${resourceId}`,
-                query: { edit: '1' },
-              }}
-            >
-              <Pencil className="h-4 w-4" />
-            </Link>
-          </Button>
-        </CardHeader>
-
-        <CardContent className="prose dark:prose-invert max-w-none">
-          <Markdown>{resource.content ?? ''}</Markdown>
-        </CardContent>
-      </Card>
     </div>
   );
 }
